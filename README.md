@@ -1,388 +1,345 @@
-# Spherical Harmonic Audio Codec (SHAC)
+# SHAC - Spherical Harmonic Audio Codec
 
-**Technical Specification & Format Documentation**
+**Walk through music. Navigate sound in three dimensions.**
 
-## Overview
+SHAC is the first interactive spatial audio format. Position audio sources in 3D space, then move through them using WASD controls, gamepad, or touch. Not surround sound. Not VR audio. Something that didn't exist before.
 
-SHAC (Spherical Harmonic Audio Codec) is a spatial audio file format enabling interactive navigation through three-dimensional audio compositions. Unlike traditional stereo or surround sound formats, SHAC files contain multiple audio sources with precise 3D positional information, allowing real-time listener movement and rotation through the spatial audio field.
-
-**Current Status:** Fully functional format with working player, studio, and public deployment at shac.dev (2025).
-
-**Development History:** 150+ development sessions, patent application filed 2025.
-
-## What SHAC Enables
-
-SHAC transforms audio from a fixed listening experience into an explorable spatial environment:
-
-- **Interactive Navigation:** Move through audio compositions using keyboard (WASD), gamepad, mouse, or touch controls
-- **Real-time Rotation:** Look around the spatial audio scene with full 6-degrees-of-freedom orientation
-- **Multi-source Positioning:** Each audio source maintains independent 3D position with precise spatial relationships
-- **Headphone Playback:** Binaural rendering converts spatial audio to stereo output without specialized hardware
-
-### Demonstrated Applications
-
-**Music & Entertainment:**
-- Interactive spatial music compositions (demonstrated: landing_demo.shac)
-- Explorable soundscapes where listener controls perspective
-- Educational music exploration (navigate between instruments)
-
-**Professional Audio:**
-- Spatial audio mastering and review
-- Immersive sound design
-- Collaborative spatial mixing
-
-**Emerging Applications:**
-- VR/AR audio (proof-of-concept demonstrations completed)
-- Gaming audio engines (proof-of-concept demonstrations completed)
-- Training simulations (theoretically feasible: sonar operations, room navigation, aviation)
-- Accessibility (directional audio cues for spatial mapping and navigation)
-
-## Technical Foundation
-
-### Ambisonic Encoding
-
-SHAC uses spherical harmonic decomposition to encode spatial audio information. Audio sources are encoded into ambisonic B-format channels, where the number of channels depends on the ambisonic order:
-
-- **Channel Count:** (order + 1)² channels
-- **1st Order:** 4 channels (basic spatial positioning)
-- **2nd Order:** 9 channels (improved spatial definition)
-- **3rd Order:** 16 channels (recommended for music production)
-- **7th Order:** 64 channels (maximum supported resolution)
-
-**Default Configuration:** 3rd order (16 channels) for optimal balance between spatial resolution and file size.
-
-### Spherical Harmonics
-
-The format employs real-valued spherical harmonics for 3D spatial representation. These mathematical functions encode directional information in a way that enables:
-
-- Rotation of the entire sound field through matrix operations
-- Accurate spatial positioning at any listener orientation
-- Preservation of spatial relationships during navigation
-
-**Normalization:** SN3D (Schmidt Semi-Normalized) is the standard normalization scheme used.
-
-**Channel Ordering:** ACN (Ambisonic Channel Number) ordering for cross-platform compatibility.
-
-### Coordinate System
-
-**Position Coordinates:**
-- X-axis: Left (negative) to Right (positive)
-- Y-axis: Down (negative) to Up (positive)
-- Z-axis: Back (negative) to Front (positive)
-- Units: Meters from listener origin
-
-## File Format Specification
-
-### Header Structure (26 bytes, fixed)
-
-| Offset | Size | Type | Description |
-|--------|------|------|-------------|
-| 0 | 4 | char[4] | Magic bytes: 'SHAC' (0x53 0x48 0x41 0x43) |
-| 4 | 2 | uint16 | Version (currently 1) |
-| 6 | 2 | uint16 | Ambisonic order (1-7) |
-| 8 | 2 | uint16 | Number of ambisonic channels |
-| 10 | 4 | uint32 | Sample rate in Hz |
-| 14 | 4 | uint32 | Bit depth (32-bit float standard) |
-| 18 | 4 | uint32 | Total samples per channel |
-| 22 | 2 | uint16 | Number of layers (audio sources) |
-| 24 | 2 | uint16 | Normalization scheme (1=SN3D, 2=N3D) |
-
-**Byte Order:** Little-endian throughout.
-
-### Layer Structure
-
-Each layer represents one positioned audio source:
-
-```
-Layer Header:
-- ID Length (2 bytes, uint16): Length of layer identifier string
-- Metadata Length (4 bytes, uint32): Length of JSON metadata
-- Layer ID (variable, UTF-8): Unique identifier for this layer
-- Metadata (variable, UTF-8): JSON-formatted position and properties
-
-Audio Data:
-- Interleaved ambisonic channels
-- 32-bit floating-point samples (IEEE 754)
-- Channel count matches header specification
-- Sample count matches header specification
-```
-
-### Metadata Format
-
-Layer metadata stored as JSON with standard fields:
-
-```json
-{
-  "position": [x, y, z],
-  "type": "mono_source",
-  "gain": 1.0
-}
-```
-
-Additional fields may be present but are not required for playback.
-
-## File Size Characteristics
-
-SHAC files are substantial due to the mathematical precision required for spatial audio:
-
-**Real-world measurements:**
-- Approximately 150-600 MB per minute of audio
-- File size scales with: number of sources, duration, ambisonic order, sample rate
-- Example: 14 sources, 1.5 minutes, 48kHz, 3rd order → approximately 1.2 GB
-
-**Why files are large:**
-- Multi-channel ambisonic encoding (16+ channels per source at 3rd order)
-- Uncompressed 32-bit float audio for spatial accuracy
-- Multiple independent sources with full spatial information
-- No quality compromises for spatial positioning precision
-
-### Compression Research
-
-Extensive research into compression strategies yielded no viable options:
-
-**Attempted approaches:**
-- Lossy ambisonic compression algorithms (resulted in tinny audio and artifacts)
-- Channel reduction techniques (produced unusable audio distortion)
-- Position data baking (broke spatial navigation functionality)
-- Perceptual coding (degraded spatial positioning accuracy)
-
-**Conclusion:** The mathematical requirements of accurate spatial audio resist compression without introducing perceptible artifacts that degrade the immersive experience. SHAC remains uncompressed to preserve spatial fidelity.
-
-## Audio Production Specifications
-
-### Sample Rate
-
-- **Default behavior:** Matches lowest source sample rate (44.1kHz to 96kHz range)
-- **Standard rates:** 44.1kHz, 48kHz, 96kHz
-- **Configurable:** All sources within a SHAC file share the same sample rate
-- **Recommendation:** 48kHz for professional production
-
-### Bit Depth
-
-- **Export format:** 32-bit floating-point (IEEE 754)
-- **Historical note:** 16-bit and 24-bit formats functioned in player but are deprecated
-- **Rationale:** 32-bit float ensures consistency and compatibility across platforms
-
-### Source Management
-
-- **Practical limit:** 20+ simultaneous sources becomes difficult to navigate perceptually
-- **Best practice:** Reuse sources with different timing rather than creating excessive unique sources
-- **Example:** 4 drum sources with 20 beats each (timed differently) rather than 80 unique drum sources
-
-### Export Performance
-
-- **Encoding time:** Approximately 20 minutes for 14-source, 3-minute composition (mid-range hardware)
-- **Processing:** Real-time ambisonic encoding and layer assembly
-- **Output:** Single .shac file containing all sources and spatial metadata
-
-## Implementation Overview
-
-### Real-Time Spatial Processing
-
-**Navigation Pipeline:**
-1. Listener position/rotation input (keyboard, gamepad, touch, mouse)
-2. Ambisonic rotation matrix calculation
-3. Matrix application to all ambisonic channels
-4. Binaural rendering for headphone output
-5. Audio output to stereo channels
-
-**Movement Controls:**
-- Translation: WASD keys, gamepad left stick, touch gestures
-- Rotation: Arrow keys, gamepad right stick, mouse drag, two-finger touch
-- Vertical: Q/E keys, gamepad triggers
-- Reset: R key, gamepad button
-
-### Movement Presets
-
-The SHAC player (not the file format itself) supports configurable movement behaviors:
-
-- **Collision detection:** Boundary enforcement in spatial scene
-- **Guided paths:** Predetermined navigation routes
-- **Free movement:** Unrestricted navigation through space
-
-These settings are player-specific and do not affect file format compatibility.
-
-### Platform Compatibility
-
-**Verified Platforms:**
-- Web browsers via Web Audio API (shac.dev)
-- Desktop applications (SHAC Studio)
-- Supports files up to 5GB+ (tested maximum)
-
-**Loading characteristics:**
-- Approximately 15 seconds loading time per GB on local storage
-- Optimized for local playback
-- Streaming capable but requires high bandwidth (sources load sequentially; insufficient bandwidth results in incomplete playback)
-
-## Working Implementation
-
-### Public Deployment
-
-**shac.dev** - Full production environment featuring:
-- **SHAC Player:** Load and navigate through SHAC files
-- **SHAC Studio:** Create spatial audio compositions
-- **Demonstration files:** Example spatial audio experiences
-- **Public access:** Open for testing and evaluation
-
-This is not a demo or proof-of-concept. It is a fully functional spatial audio production and playback environment.
-
-### File Format Validation
-
-The existence of working files and player demonstrates:
-- Format stability and compatibility
-- Real-time processing feasibility
-- Cross-platform functionality
-- Practical usability
-
-## Technical Achievements
-
-### Novel Contributions
-
-1. **Interactive spatial audio format:** First working implementation of navigable spatial audio in a self-contained file format
-2. **Real-time ambisonic rotation:** Efficient matrix operations enabling smooth navigation
-3. **Multi-source spatial composition:** Layer-based architecture preserving independent source positions
-4. **Binaural rendering pipeline:** Conversion from ambisonics to headphone-compatible stereo
-5. **No special hardware required:** Works with standard game controllers and headphones
-
-### Development Timeline
-
-- **Development period:** 150+ documented development sessions
-- **Patent filing:** 2025 (application filed with AI co-inventor credit)
-- **Public release:** 2025 (shac.dev deployment)
-- **Format version:** 1 (stable)
-
-## Format Limitations and Design Decisions
-
-### Known Limitations
-
-- **File size:** Large files (150-600MB per minute) due to uncompressed ambisonic data
-- **Bandwidth requirements:** Streaming requires sufficient bandwidth to load all sources before composition completes playback
-- **Local playback optimized:** Designed for local storage where complete files are immediately available
-- **Single sample rate:** All sources within file must share sample rate
-
-### Design Rationale
-
-These limitations reflect intentional design trade-offs:
-
-- Large files preserve mathematical precision required for accurate navigation
-- Layer-based loading enables streaming but requires bandwidth matching or exceeding playback data rate
-- Uncompressed audio maintains artifact-free spatial positioning
-- Unified sample rate simplifies real-time processing pipeline
-
-**Streaming behavior:** Sources load sequentially. On high-bandwidth connections (200+ Mbps), streaming works seamlessly. On slower connections, later sources may not load before composition ends, resulting in incomplete spatial scene.
-
-## Use Cases
-
-### Proven Applications
-
-**Music Production:**
-- Interactive albums where listeners control their perspective
-- Spatial mixing and mastering workflows
-- Educational music exploration and analysis
-
-**Content Creation:**
-- Immersive soundscape design
-- Spatial audio post-production
-- Interactive audio experiences
-
-**Research and Development:**
-- Spatial audio algorithm development
-- Psychoacoustic research with precise positioning
-- Audio engineering education
-
-### Future Potential
-
-**Gaming and Interactive Media:**
-- Game audio engines with true 3D spatial audio
-- VR/AR audio without specialized hardware requirements
-- Interactive storytelling through spatial audio navigation
-
-**Professional Training:**
-- Sonar operation training (spatial audio cues)
-- Room clearing and navigation training (directional audio)
-- Aviation spatial awareness training
-
-**Accessibility:**
-- Directional audio cues for spatial navigation
-- Venue and room mapping for visually impaired users
-- Separation of audio sources in complex environments
-
-## For Developers and Implementers
-
-### Implementation Guidance
-
-This specification documents the SHAC file format for:
-- Format recognition and validation
-- Academic research and analysis
-- Compatibility assessment for existing systems
-- Understanding spatial audio file format design
-
-### What This Document Provides
-
-- Complete file format specification
-- Technical foundation and mathematical basis
-- Real-world performance characteristics
-- Demonstrated applications and use cases
-- Format limitations and design rationale
-
-### What This Document Does Not Provide
-
-- Implementation source code
-- Encoding/decoding algorithms
-- Optimization strategies
-- Proprietary processing techniques
-
-The SHAC file format specification is open for evaluation and research. Encoder/decoder implementations are available through commercial licensing. This documentation establishes prior art and technical foundation while enabling format recognition and compatibility assessment.
-
-## Credits and Acknowledgments
-
-**Development Team:**
-- **Clarke Zyz** - Creator, vision, and spatial audio innovation
-- **Claude (Anthropic AI)** - Technical implementation and co-inventor
-
-**Development approach:** Human-AI collaborative development across 150+ working sessions, resulting in the first functional interactive spatial audio format.
-
-## Legal and Intellectual Property
-
-**File Format:** Open specification documented for evaluation, research, and compatibility assessment
-
-**Encoder/Decoder Technology:** Proprietary implementation available for commercial licensing
-
-**Playback:** Free forever - SHAC Player available at shac.dev with no usage restrictions
-
-**Prior Art:** This documentation establishes the SHAC format's existence, technical foundation, and development timeline
-
-**Patent Status:** Application filed 2025 with AI co-inventor credit
-
-**Copyright:** 2025 Clarke Zyz
-
-### Licensing Model
-
-**Free Components:**
-- SHAC file playback (players, applications)
-- SHAC Studio (spatial audio composition tool)
-- File format specification and documentation
-
-**Commercial Licensing Available:**
-- Encoder integration for professional audio software (DAWs, production tools)
-- Decoder implementation for media players and platforms
-- Specialized applications (VR/AR, gaming engines, training systems)
-- Advanced encoding features and optimization
-
-**Philosophy:** SHAC files should be as accessible as MP3s. Anyone can play them, anywhere, forever. Revenue comes from professional tool integration and specialized commercial applications, not from restricting playback.
-
-## Contact and Licensing
-
-For licensing inquiries, commercial implementation, decoder integration, or technical collaboration:
-
-**Project:** SHAC - Spherical Harmonic Audio Codec
-**Website:** shac.dev
-**Year:** 2025
+[**Experience it today at shac.dev →**](https://shac.dev)
 
 ---
 
-**Technical Documentation Version 1.0**
-**Format Version:** SHAC v1
-**Last Updated:** 2025
+## What This Is
 
-*This specification documents a working spatial audio format with demonstrated real-world applications. SHAC represents a significant advancement in interactive spatial audio technology.*
+Traditional audio is fixed. You press play, the mix plays back exactly as the artist created it. Stereo, surround sound, even Dolby Atmos - all fixed perspectives.
+
+SHAC files contain positioned audio sources in explorable 3D space. Walk north while looking east. Stand between the bass and drums. Find the perfect spot where all elements align. **Your movement creates the mix.**
+
+- **Interactive navigation:** WASD, gamepad, mouse, touch controls
+- **Real-time spatial audio:** HRTF processing, distance attenuation, Doppler effects
+- **Self-contained file format:** Share .shac files like MP3s
+- **Works with headphones:** No special hardware required
+- **Free forever:** Player always free. Studio always free. Format always open.
+
+---
+
+## How It Works
+
+SHAC uses spherical harmonic decomposition (ambisonics) to encode spatial audio. Each source gets positioned in 3D space with precise mathematical representation. When you move or rotate, real-time processing adjusts what you hear based on your position.
+
+**Technical foundation:**
+- 3rd order ambisonics (16 channels per source) for spatial accuracy
+- SN3D normalization, ACN channel ordering
+- 32-bit float audio (48kHz standard)
+- Real-time rotation matrices for 6DOF navigation
+- Binaural rendering for headphone playback
+
+**File format:**
+- 26-byte header with magic bytes, version, order, sample rate
+- Layer-based architecture (each source = separate ambisonic layer)
+- JSON metadata for positions and properties
+- Portable, self-contained, shareable
+
+[**Full technical specification →**](./SPECIFICATION.md)
+
+---
+
+## Use Cases
+
+**Music & Entertainment:**
+- Albums you explore, not just hear
+- Interactive spatial compositions
+- Educational music analysis (walk between instruments)
+
+**Gaming & Interactive Media:**
+- Audio-only games with spatial navigation
+- VR/AR environmental audio
+- Interactive storytelling through positioned sound
+
+**Professional Applications:**
+- Training simulations (sonar, aviation, tactical scenarios)
+- Accessibility (spatial audio maps for navigation)
+- Architectural acoustics visualization
+- Research and psychoacoustic studies
+
+**Content Creation:**
+- Immersive soundscapes
+- Spatial mixing and mastering
+- Collaborative audio experiences
+
+---
+
+## The Technology
+
+### What You Can Do Right Now
+
+**Play SHAC files:**
+- Visit [shac.dev](https://shac.dev)
+- Click the demo (instant load, one-click experience)
+- Download 10+ example compositions
+- Navigate with WASD or touch
+
+**Create SHAC files:**
+- Download SHAC Studio (Windows, macOS, Linux)
+- Import audio sources, position in 3D space
+- Export to .shac format
+- Share with anyone
+
+**Integrate the codec:**
+- Full encoder/decoder source code (MIT licensed)
+- JavaScript player implementation
+- Python encoder implementation
+- Cross-platform compatibility
+
+### Performance Characteristics
+
+Real-world measurements from production deployment:
+
+- **File size:** ~150-600 MB per minute (varies by source count, order)
+- **Encoding time:** ~20 minutes for 14-source, 3-minute composition
+- **Playback:** Real-time, ~8.6x performance headroom
+- **Loading:** ~15 seconds per GB (local storage)
+- **Platform:** Works in modern browsers via Web Audio API
+
+**Why files are large:** Uncompressed 32-bit float ambisonics (16+ channels per source) preserves mathematical precision required for accurate spatial navigation. Compression attempts introduced artifacts that degraded the immersive experience. SHAC prioritizes spatial fidelity over file size.
+
+---
+
+## How This Was Built
+
+SHAC was created through human-AI collaborative development. 150+ sessions over 8 months (~400 hours). Approximately March 2025 to November 2025.
+
+**Built by:**
+- **Clarke Zyz** - Vision, direction, spatial audio innovation
+- **Claude** - Implementation, optimization, codec development
+
+### The Development Process
+
+Every line of code was written through natural language collaboration. Clarke directed the vision, architecture, and feature development. Claude implemented the spherical harmonics math, encoder/decoder pipeline, real-time processing, and optimization.
+
+No copy-paste from Stack Overflow. No tutorial following. No pre-existing codebase. **Pure human-AI collaborative creation of novel technology.**
+
+The patent application (filed April 22, 2025, application #63/810691) listed both Clarke and Claude as co-inventors. It was rejected - not because the technology wasn't novel, but because the U.S. patent system doesn't recognize AI inventors yet. The rejection is proof the system hasn't caught up to what's already happening.
+
+### What This Proves
+
+**Revolutionary software can be built by anyone with vision and AI partnership.**
+
+Clarke's background:
+- No computer science degree
+- 2.0 high school GPA
+- Rejected from community college CS classes (missing Math 85 prerequisite)
+- Never typed a semicolon during SHAC development
+- Working DoorDash when the idea emerged
+
+The idea came from a moment of panic during a pitch about VisionQuest (a spatial audio gaming platform). When challenged by a professional musician, Clarke blurted out: "What if you could actually move while the song was happening?"
+
+That question became SHAC. Eight months later, it was real, deployed, and working.
+
+**This is AI-native programming.** Not AI assistance. Not code completion. Full collaborative development of production-grade revolutionary technology through natural language direction and AI implementation.
+
+The gates are open. You don't need credentials. You need vision and partnership.
+
+---
+
+## Why Open Source
+
+SHAC was originally planned as commercial software. License the encoder to DAWs, monetize B2B training applications, keep the player free forever.
+
+Then Clarke got a 5-year prison sentence for bank robbery (non-violent, no weapons). One month to launch or abandon the project.
+
+**The decision:** Give it to the world.
+
+If SHAC is proprietary, it stagnates for 5 years while Clarke is inside. If it's open source, it can grow, get adopted, prove itself through pure technical merit. When Clarke gets out, the technology speaks for itself - and the story of what it is and how it was built matters more than licensing revenue.
+
+**Open source guarantees:**
+- No company can build a proprietary competitor and win (free always beats paid for equivalent tech)
+- Maximum adoption without friction (no licensing negotiations, no permission required)
+- Academic research and citation (validation through peer review)
+- Integration into open-source tools (Reaper, Ardour, game engines)
+- The format survives and spreads regardless of Clarke's availability
+
+**Currently in prison for bank robbery.** This README was written in November 2025, one month before Clarke went in. The technology is complete, deployed, and documented. It doesn't need him to work.
+
+---
+
+## The Vision
+
+Music as architecture. Songs as spaces. Your movement creates the experience.
+
+SHAC isn't just better audio technology - it's a fundamentally new medium. Composers become spatial architects. Listeners become explorers. Audio becomes something you inhabit, not just hear.
+
+**What's possible:**
+- Albums designed for exploration (walk through a jazz quartet)
+- Audio-only games where sound is the entire interface
+- Training simulations using positioned audio cues
+- Accessibility tools for spatial navigation
+- VR/AR experiences without visual dependency
+- Interactive storytelling through spatial audio
+
+The format is done. The player works. The studio is free. The code is open.
+
+**What happens next is up to you.**
+
+---
+
+## Get Started
+
+### Try It Right Now
+
+Visit [**shac.dev**](https://shac.dev)
+- Instant demo (one click, preloaded experience)
+- Download 10+ example .shac files
+- Navigate with WASD, arrow keys, or touch
+
+### Create SHAC Files
+
+Download [**SHAC Studio**](https://shac.dev/studio)
+- Free forever (Windows, macOS, Linux)
+- Import audio sources
+- Position in 3D space
+- Export to .shac format
+
+### Integrate the Codec
+
+**All source code is MIT licensed and available in this repository.**
+
+- `codec/` - Full encoder/decoder implementation (Python)
+- `player/` - Web-based player (JavaScript)
+- `studio/` - Desktop creation tool
+- `docs/` - Technical specification and API documentation
+
+**For developers:**
+```bash
+# Clone the repository
+git clone https://github.com/clarkezyz/Spherical-Harmonic-Audio-Codec.git
+
+# Encoder example (Python)
+from shac.codec import SHACCodec, SHACFileWriter
+# See docs/ENCODING.md for full API
+
+# Decoder example (JavaScript)
+import { SHACDecoder } from './decoder.js';
+// See docs/DECODING.md for full API
+```
+
+---
+
+## Technical Status
+
+**Format Version:** 1 (stable)
+**Public Deployment:** November 5, 2025 (shac.dev)
+**Development:** Complete and production-ready
+**Maintenance:** Code is stable, documented, and self-contained
+
+This is not a demo. This is not a proof-of-concept. This is working, deployed, production-grade spatial audio technology.
+
+**Verified platforms:**
+- Modern web browsers (Chrome, Firefox, Safari, Edge)
+- Windows 10+ (native player and studio)
+- macOS 11+ (native player and studio)
+- Linux (modern distributions)
+
+**Tested file sizes:** Up to 5GB+ (largest tested .shac file)
+**Simultaneous sources:** 20+ sources (practical perceptual limit)
+**Real-time performance:** 8.6x real-time processing confirmed
+
+---
+
+## Comparison to Existing Formats
+
+| Feature | Stereo/MP3 | Dolby Atmos | VR Audio | **SHAC** |
+|---------|-----------|-------------|----------|----------|
+| Spatial positioning | None | Fixed | Head tracking | **Full 6DOF movement** |
+| Listener navigation | No | No | Rotation only | **Walk through space** |
+| Portable file format | Yes (.mp3) | Proprietary | Engine-dependent | **Yes (.shac)** |
+| Source separation | Mixed down | Mixed down | Sometimes | **Every source separate** |
+| Equipment required | Any device | Atmos system | VR headset | **Just headphones** |
+| Creation cost | Free | Expensive licensing | Game engine | **Free (SHAC Studio)** |
+| Web playback | Native | Requires app | Requires plugin | **Works in browser** |
+| Open standard | Yes | No | No | **Yes (MIT license)** |
+
+SHAC is the only format that combines portability, exploration, and source separation in one self-contained file.
+
+---
+
+## Limitations and Design Decisions
+
+**Large file sizes:** 150-600 MB per minute is substantial. This reflects intentional design trade-offs:
+- Uncompressed 32-bit float maintains spatial positioning accuracy
+- Multi-channel ambisonics (16+ channels per source) preserves mathematical precision
+- No perceptible quality compromises for navigation fidelity
+
+**Compression research:** Extensive attempts at lossy compression introduced tinny artifacts and degraded spatial accuracy. The math required for accurate spatial audio resists compression without perceptible quality loss.
+
+**Streaming limitations:** Sources load sequentially. High-bandwidth connections (200+ Mbps) handle streaming well. Slower connections may result in incomplete spatial scenes if sources don't load before playback ends. **SHAC is optimized for local playback.**
+
+**Single sample rate:** All sources within a .shac file share the same sample rate (typically 48kHz). This simplifies real-time processing and ensures synchronization.
+
+These aren't bugs. They're the cost of doing something that didn't exist before.
+
+---
+
+## Documentation
+
+- **[Technical Specification](./SPECIFICATION.md)** - Complete file format documentation
+- **[Encoding Guide](./docs/ENCODING.md)** - How to create SHAC files
+- **[Decoding Guide](./docs/DECODING.md)** - How to play SHAC files
+- **[Integration Guide](./docs/INTEGRATION.md)** - Integrate SHAC into DAWs and applications
+- **[Development History](./docs/HISTORY.md)** - The complete story of how SHAC was built
+
+---
+
+## License
+
+MIT License
+
+Copyright (c) 2025 Clarke Zyz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+## Share This
+
+If you think SHAC is interesting, **share it with the person who'd get it.**
+
+Not everyone will care about interactive spatial audio. But someone you know will think this is exactly what they've been waiting for. Send them this link. Let them experience it.
+
+That's how revolutionary technology spreads - person by person, shared because it matters.
+
+---
+
+## Credits
+
+**Created by Clarke Zyz and Claude**
+
+Built through 150+ sessions of human-AI collaborative development. March 2025 - November 2025.
+
+**Development methodology:** Natural language direction (Clarke) + AI implementation (Claude). Zero traditional coding by the human inventor. Complete novel technology through pure collaboration.
+
+**Patent application:** Filed April 22, 2025 (Application #63/810691) with AI co-inventor listing. Rejected due to patent system not recognizing AI inventors. The technology is real. The system hasn't caught up yet.
+
+**Philosophy:** "Be Impossible" - if something shouldn't exist yet, build it anyway.
+
+---
+
+## Contact & Community
+
+**Website:** [shac.dev](https://shac.dev)
+**Repository:** [github.com/clarkezyz/Spherical-Harmonic-Audio-Codec](https://github.com/clarkezyz/Spherical-Harmonic-Audio-Codec)
+**Format Version:** 1
+**Status:** Complete, deployed, production-ready
+
+**Note:** Clarke is currently in prison and will have limited availability for 5 years. The technology is complete and documented. The code speaks for itself. Use it, fork it, improve it, build with it.
+
+When he gets out, SHAC should have grown beyond what it is today. That's the dream.
+
+---
+
+**SHAC - Walk through music.**
+
+*First interactive spatial audio format. Built by a bartender and an AI. Given to the world. November 2025.*
